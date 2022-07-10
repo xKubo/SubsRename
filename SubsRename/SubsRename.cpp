@@ -7,6 +7,8 @@
 #include <vector>
 #include <map>
 
+//#include <boost/algorithm/split.hpp>
+
 using namespace std;
 using namespace std::filesystem;
 namespace fs = std::filesystem;
@@ -87,16 +89,16 @@ CFileInfo ParseFileName(path p)
 
 // C:ffmpeg -i Unforgotten.S01E01.mkv -f srt -i Unforgotten.S01E01.srt -map 0:0 -map 0:1 -map 1:0 -c:v copy -c:a copy -c:s srt out.mkv
 
-void GenMuxedFile(const CEpisode& e)
+void GenMuxedFile(const path& Video, const path& Sub, const path& Out)
 {
-
 }
 
 int main() try
 {
     path p = fs::current_path();
-
-
+    string NamePrefix = p.stem().string();
+    
+    cout << "Name prefix: " << NamePrefix << endl;
 
     vector<CFileInfo> Files;
     map<CPartID, CEpisode> Episodes;
@@ -118,11 +120,23 @@ int main() try
         }            
     }
 
-    for (const auto& e : Episodes)
+    for (const auto& ep : Episodes)
     {
-        if (!e.second.IsOK())
-            throw std::runtime_error("Episode " + e.first.str() +" is not OK");
-        GenMuxedFile(e.second);
+        if (!ep.second.IsOK())
+            throw std::runtime_error("Episode " + ep.first.str() +" is not OK");
+        const auto& e = ep.second;
+        const auto& vf = e.Video.File;
+        const auto& sf = e.Sub.File;
+        fs::path VFName = vf.parent_path() / (NamePrefix + "." + e.Part.str() + vf.extension().string());
+        fs::rename(vf, VFName);
+        cout << vf << " -> " << VFName;
+        fs::path SubName = sf.parent_path() / (NamePrefix + "." + e.Part.str() + sf.extension().string());
+        fs::rename(sf, SubName);
+        cout << sf << " -> " << SubName;
+        fs::path OutName = VFName.parent_path() / (VFName.stem().string() + ".subs" + VFName.extension().string());
+
+        GenMuxedFile(VFName, SubName, OutName);
+
     }
 }
 catch (const std::exception& e)
