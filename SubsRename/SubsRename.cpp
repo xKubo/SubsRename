@@ -7,7 +7,7 @@
 #include <vector>
 #include <map>
 
-//#include <boost/algorithm/split.hpp>
+//#include <boost/algorithm/string.hpp>
 
 using namespace std;
 using namespace std::filesystem;
@@ -73,12 +73,20 @@ bool IsEpisodeOK(const CPartID& Part, const CEpisode& e)
 vector<string> VideoExts = { "mkv" };
 vector<string> SubsExts = { "srt" };
 
+bool Contains(const string& Body, const string& Text)
+{
+    auto it = std::search(Body.begin(), Body.end(), Text.begin(), Text.end());
+    return it != Body.end();
+}
+
 CFileInfo ParseFileName(path p)
 {
-    static const regex r{ ".+S(\\d{2})E(\\d{2}).*\\.([^\\.]+)" };
+    static const regex r{ ".+S(\\d{2})E(\\d{2}).*\\.([^\\.]+)", std::regex_constants::icase };
     CFileInfo fi;
     smatch sm;
     string s = p.string();
+    if (Contains(p.string(), ".subs."))      // we skip already processed files
+        return fi;
     if (regex_match(s, sm, r))
     {
         fi.Part.Serie = stoi(sm[1]);
@@ -101,16 +109,54 @@ void GenMuxedFile(const path& Video, const path& Sub, const path& Out)
     system(oss.str().c_str());
 }
 
-int main() try
+using CParams = std::map<string, string>;
+
+template <typename ... TArgs>
+void ArgsToOstream(std::ostream& o, const TArgs&... args...)
+{
+    (o << ... << args);
+}
+
+template <typename ... TArgs>
+inline bool Check(bool res, const TArgs&... args...)
+{
+    if (res == true)
+        return res;
+    std::ostringstream oss;
+    ArgsToOstream(oss, args...);
+    throw std::runtime_error("Check failed: " + oss.str());
+}
+
+CParams LoadParams(int argc, char* argv[])
+{
+    CParams res;
+
+    Check(argc % 2 == 1, "Even num of params:", argc);
+
+
+    for (int i = 1; i < argc; i+=2)
+    {
+        string Key = argv[i];
+        Check(Key[0] == '-', "ParStartsWith-");
+        Key.erase(0, 1);
+        res[Key] = argv[i + 1];
+    }
+
+    return res;
+
+}
+
+int main(int argc, char* argv[]) try
 {
 
-    path p = "D:\\Films\\Unforgotten";// fs::current_path();
-
+    CParams pars = LoadParams(argc, argv);
+    path p = pars["d"];// "D:\\Films\\Unforgotten\\S01";
+    Check(!p.empty(), "Specify dir with -d");
+    string NamePrefix = pars["n"]; //"Unforgotten";
+    Check(!NamePrefix.empty(), "Specify name prefix with -n");
 
     path OrigFilesDir = p / "orig";
     fs::create_directory(OrigFilesDir);
-
-    string NamePrefix = p.stem().string();
     
     cout << "Name prefix: " << NamePrefix << endl;
 
@@ -155,7 +201,7 @@ int main() try
         fs::rename(sf, SubName);
         cout << sf << endl; 
         cout << " -> " << SubName << endl;
-        fs::path OutName = VFName.parent_path() / (VFName.stem().string() + ".subs" + VFName.extension().string());
+        fs::path OutName = p / (VFName.stem().string() + ".subs" + VFName.extension().string());
 
         GenMuxedFile(VFName, SubName, OutName);
 
