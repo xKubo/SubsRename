@@ -20,7 +20,9 @@ struct CPartID
     int Serie = 0, Episode = 0;
     string str() const
     {
-        return "S" + std::to_string(Serie) + "E" + std::to_string(Episode);
+        std::ostringstream oss;
+        oss << "S" << setw(2) << setfill('0') << Serie << setw(2) << setfill('0') << Episode;
+        return oss.str();
     }
 };
 
@@ -51,28 +53,29 @@ map<string, FileType> Exts = {
 
 struct CFileInfo
 {
-    FileType Type;
+    FileType Type = FileType::Unknown;
     path File;
     CPartID Part;
 };
 
 struct CEpisode
 {
-    bool IsOK() const
-    {
-        return Part.Episode != 0 && Part.Serie != 0 && Video.Type == FileType::Video && Sub.Type == FileType::Sub;
-    }
-
-    CPartID Part;
     CFileInfo Video, Sub, Out;
 };
+
+bool IsEpisodeOK(const CPartID& Part, const CEpisode& e) 
+{
+    return Part.Episode != 0 && Part.Serie != 0 && e.Video.Type == FileType::Video && e.Sub.Type == FileType::Sub;
+}
+
+
 
 vector<string> VideoExts = { "mkv" };
 vector<string> SubsExts = { "srt" };
 
 CFileInfo ParseFileName(path p)
 {
-    static const regex r{ ".+S(\\d{2})E(\\d{2}).+\\.([^\\.]+)" };
+    static const regex r{ ".+S(\\d{2})E(\\d{2}).*\\.([^\\.]+)" };
     CFileInfo fi;
     smatch sm;
     string s = p.string();
@@ -80,9 +83,11 @@ CFileInfo ParseFileName(path p)
     {
         fi.Part.Serie = stoi(sm[1]);
         fi.Part.Episode = stoi(sm[2]);
+        fi.File = p;
         auto it = Exts.find(sm[3]);
         if (it == Exts.end())
             throw std::runtime_error("Invalid extension:" + sm[3].str());
+        fi.Type = it->second;
     }
     return fi;
 }
@@ -91,11 +96,20 @@ CFileInfo ParseFileName(path p)
 
 void GenMuxedFile(const path& Video, const path& Sub, const path& Out)
 {
+    std::ostringstream oss;
+    oss << "C:\\tools\\ffmpeg\\ffmpeg -i \"" << Video << "\" -f srt -i \"" << Sub << "\" -map 0:0 -map 0:1 -map 1:0 -c:v copy -c:a copy -c:s srt \"" << Out << "\"";
+    system(oss.str().c_str());
 }
 
 int main() try
 {
-    path p = fs::current_path();
+
+    path p = "D:\\Films\\Unforgotten";// fs::current_path();
+
+
+    path OrigFilesDir = p / "orig";
+    fs::create_directory(OrigFilesDir);
+
     string NamePrefix = p.stem().string();
     
     cout << "Name prefix: " << NamePrefix << endl;
@@ -115,29 +129,38 @@ int main() try
             continue;
         case FileType::Video:
             Episodes[fi.Part].Video = fi;
+            break;
         case FileType::Sub:
             Episodes[fi.Part].Sub = fi;
+            break;
         }            
     }
 
     for (const auto& ep : Episodes)
     {
-        if (!ep.second.IsOK())
-            throw std::runtime_error("Episode " + ep.first.str() +" is not OK");
+        if (!IsEpisodeOK(ep.first, ep.second))
+        {
+            cout << "Skipping episode: " << ep.first << endl;
+            continue;
+        }
         const auto& e = ep.second;
         const auto& vf = e.Video.File;
         const auto& sf = e.Sub.File;
-        fs::path VFName = vf.parent_path() / (NamePrefix + "." + e.Part.str() + vf.extension().string());
+        const auto& Part = ep.first;
+        fs::path VFName = OrigFilesDir / (NamePrefix + "." + Part.str() + vf.extension().string());
         fs::rename(vf, VFName);
-        cout << vf << " -> " << VFName;
-        fs::path SubName = sf.parent_path() / (NamePrefix + "." + e.Part.str() + sf.extension().string());
+        cout << vf << endl;
+        cout << " -> " << VFName << endl;
+        fs::path SubName = OrigFilesDir / (NamePrefix + "." + Part.str() + sf.extension().string());
         fs::rename(sf, SubName);
-        cout << sf << " -> " << SubName;
+        cout << sf << endl; 
+        cout << " -> " << SubName << endl;
         fs::path OutName = VFName.parent_path() / (VFName.stem().string() + ".subs" + VFName.extension().string());
 
         GenMuxedFile(VFName, SubName, OutName);
 
     }
+    cout << "Done" << endl;
 }
 catch (const std::exception& e)
 {
