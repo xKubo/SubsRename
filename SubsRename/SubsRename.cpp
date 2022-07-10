@@ -82,12 +82,13 @@ bool Contains(const string& Body, const string& Text)
 CFileInfo ParseFileName(path p)
 {
     static const regex r{ ".+S(\\d{2})E(\\d{2}).*\\.([^\\.]+)", std::regex_constants::icase };
+    static const regex r2{ ".+(\\d{2})x(\\d{2}).*\\.([^\\.]+)", std::regex_constants::icase };
     CFileInfo fi;
     smatch sm;
     string s = p.string();
     if (Contains(p.string(), ".subs."))      // we skip already processed files
         return fi;
-    if (regex_match(s, sm, r))
+    if (regex_match(s, sm, r) || regex_match(s, sm, r2))
     {
         fi.Part.Serie = stoi(sm[1]);
         fi.Part.Episode = stoi(sm[2]);
