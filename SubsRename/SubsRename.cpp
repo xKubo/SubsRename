@@ -112,18 +112,12 @@ void GenMuxedFile(const path& Video, const path& Sub, const path& Out)
 using CParams = std::map<string, string>;
 
 template <typename ... TArgs>
-void ArgsToOstream(std::ostream& o, const TArgs&... args...)
-{
-    (o << ... << args);
-}
-
-template <typename ... TArgs>
 inline bool Check(bool res, const TArgs&... args...)
 {
     if (res == true)
         return res;
     std::ostringstream oss;
-    ArgsToOstream(oss, args...);
+    (oss << ... << args);
     throw std::runtime_error("Check failed: " + oss.str());
 }
 
@@ -150,9 +144,9 @@ int main(int argc, char* argv[]) try
 {
 
     CParams pars = LoadParams(argc, argv);
-    path p = pars["d"];// "D:\\Films\\Unforgotten\\S01";
+    path p = pars["d"];
     Check(!p.empty(), "Specify dir with -d");
-    string NamePrefix = pars["n"]; //"Unforgotten";
+    string NamePrefix = pars["n"];
     Check(!NamePrefix.empty(), "Specify name prefix with -n");
 
     path OrigFilesDir = p / "orig";
