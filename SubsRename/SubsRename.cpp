@@ -14,6 +14,15 @@ using namespace std::filesystem;
 namespace fs = std::filesystem;
 
 
+template <typename ... TArgs>
+inline bool Check(bool res, const TArgs&... args...)
+{
+    if (res == true)
+        return res;
+    std::ostringstream oss;
+    (oss << ... << args);
+    throw std::runtime_error("Check failed: " + oss.str());
+}
 
 struct CPartID
 {
@@ -21,7 +30,7 @@ struct CPartID
     string str() const
     {
         std::ostringstream oss;
-        oss << "S" << setw(2) << setfill('0') << Serie << setw(2) << setfill('0') << Episode;
+        oss << "S" << setw(2) << setfill('0') << Serie << "E" << setw(2) << setfill('0') << Episode;
         return oss.str();
     }
 };
@@ -60,15 +69,13 @@ struct CFileInfo
 
 struct CEpisode
 {
-    CFileInfo Video, Sub, Out;
+    CFileInfo Video, Sub;
 };
 
 bool IsEpisodeOK(const CPartID& Part, const CEpisode& e) 
 {
     return Part.Episode != 0 && Part.Serie != 0 && e.Video.Type == FileType::Video && e.Sub.Type == FileType::Sub;
 }
-
-
 
 vector<string> VideoExts = { "mkv" };
 vector<string> SubsExts = { "srt" };
@@ -107,20 +114,12 @@ void GenMuxedFile(const path& Video, const path& Sub, const path& Out)
 {
     std::ostringstream oss;
     oss << "C:\\tools\\ffmpeg\\ffmpeg -i \"" << Video << "\" -f srt -i \"" << Sub << "\" -map 0:0 -map 0:1 -map 1:0 -c:v copy -c:a copy -c:s srt \"" << Out << "\"";
-    system(oss.str().c_str());
+    int res = system(oss.str().c_str());
+    Check(res == 0, "SystemReturnedError:", res);
 }
 
 using CParams = std::map<string, string>;
 
-template <typename ... TArgs>
-inline bool Check(bool res, const TArgs&... args...)
-{
-    if (res == true)
-        return res;
-    std::ostringstream oss;
-    (oss << ... << args);
-    throw std::runtime_error("Check failed: " + oss.str());
-}
 
 CParams LoadParams(int argc, char* argv[])
 {
@@ -174,7 +173,8 @@ int main(int argc, char* argv[]) try
         case FileType::Sub:
             Episodes[fi.Part].Sub = fi;
             break;
-        }            
+        }     
+        Files.push_back(fi);
     }
 
     for (const auto& ep : Episodes)
