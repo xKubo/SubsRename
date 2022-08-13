@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iomanip>
+#include <regex>
 
 namespace SubsResync
 {
@@ -36,6 +37,36 @@ namespace SubsResync
 		return oss.str();
 	}
 
+	
+
+	int ToInt(const std::smatch& sm, int Index)
+	{
+		size_t Idx = 0;
+		std::string s = sm[Index].str();
+		int res = std::stoi(s, &Idx);
+		if (Idx != s.size())
+			throw std::runtime_error(" Cannot parse int from : " + s);
+		return res;
+	}
+
+	
+	std::regex SRTFormatParser{ R"((\d{2}):(\d{2}):(\d{2}),(\d{3})" };
+	Time::Diff FromSRTFormat(std::string s)
+	{	
+		using namespace std;
+		smatch sm;
+		if (!regex_match(s, sm, SRTFormatParser))
+			throw std::runtime_error("Cannot parse SRT format string: " + s);
+
+		Time::Diff d =
+			Time::Hours() * ToInt(sm, 1) +
+			Time::Minutes() * ToInt(sm, 2) +
+			Time::Seconds() * ToInt(sm, 3) +
+			Time::Milliseconds() * ToInt(sm, 4);
+		
+		return d;
+	}
+
 	CSRTLine Parse(std::ifstream &f)
 	{
 		CSRTLine l;
@@ -59,7 +90,7 @@ namespace SubsResync
 
 	
 
-	CSRTLines AdjustLineTimes(const CSRTLines& ls, Time::Diff RealFirst, Time::Diff RealLast)
+	CSRTLines ResyncSRTLines(const CSRTLines& ls, Time::Diff RealFirst, Time::Diff RealLast)
 	{
 		CSRTLines res;
 		if (ls.empty())
@@ -90,7 +121,7 @@ namespace SubsResync
 			In.push_back(l);
 		}
 
-		CSRTLines Out = AdjustLineTimes(In, c.FirstSub, c.LastSub);
+		CSRTLines Out = ResyncSRTLines(In, c.FirstSub, c.LastSub);
 
 		for (const auto& o : Out)
 		{

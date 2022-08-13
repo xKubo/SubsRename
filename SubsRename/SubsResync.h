@@ -25,7 +25,8 @@ namespace SubsResync
 
 	using CSRTLines = std::vector<CSRTLine>;
 
-	CSRTLines AdjustLineTimes(const CSRTLines& ls, Time::Diff RealFirst, Time::Diff RealLast);
+	CSRTLines ResyncSRTLines(const CSRTLines& ls, Time::Diff RealFirst, Time::Diff RealLast);
 
 	std::string ToSRTFormat(Time::Diff d);
+	Time::Diff FromSRTFormat(std::string f);
 }
