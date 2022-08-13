@@ -7,6 +7,8 @@
 #include <vector>
 #include <map>
 
+#include "SubsResync.h"
+
 //#include <boost/algorithm/string.hpp>
 
 using namespace std;
@@ -48,7 +50,7 @@ ostream& operator<<(ostream& o, CPartID p)
     return o;
 }
 
-enum FileType
+enum struct FileType
 {
     Unknown,
     Video,
