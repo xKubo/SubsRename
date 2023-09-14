@@ -18,6 +18,10 @@ namespace SubsResync
 
 	struct CSRTLine
 	{
+		bool IsValid() const
+		{
+			return No != 0;
+		}
 		int No = 0;
 		Time::Diff From, To;
 		std::string Text;
@@ -29,4 +33,5 @@ namespace SubsResync
 
 	std::string ToSRTFormat(Time::Diff d);
 	Time::Diff FromSRTFormat(std::string f);
+	Time::Diff lerp(Time::Diff SRTFirst, Time::Diff SRTLast, Time::Diff RealFirst, Time::Diff RealLast, Time::Diff t);
 }

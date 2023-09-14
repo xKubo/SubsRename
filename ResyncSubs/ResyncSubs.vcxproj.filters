@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="SubsRenameTest.cpp">
+    <ClCompile Include="ResyncSubs.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\SubsRename\SubsResync.cpp">
@@ -24,7 +24,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\SubsRename\SubsResync.h">
-      <Filter>Header Files</Filter>
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

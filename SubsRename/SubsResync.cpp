@@ -6,7 +6,7 @@
 
 namespace SubsResync
 {
-	std::string CRLF = "\r\n";
+	std::string CRLF = "\n";
 
 	std::string ToSRTFormat(Time::Diff d)
 	{
@@ -30,8 +30,8 @@ namespace SubsResync
 		i64_t MSecs = d.InMillisecs();
 
 		oss << setw(2) << setfill('0') << Hours << ":";
-		oss << setw(2) << setfill('0') << Minutes << ":";
-		oss << setw(2) << setfill('0') << Seconds << ",";
+		oss << setw(2) << setfill('0') << Mins << ":";
+		oss << setw(2) << setfill('0') << Secs << ",";
 		oss << setw(3) << setfill('0') << MSecs;
 		
 		return oss.str();
@@ -50,7 +50,7 @@ namespace SubsResync
 	}
 
 	
-	std::regex SRTFormatParser{ R"((\d{2}):(\d{2}):(\d{2}),(\d{3})" };
+	std::regex SRTFormatParser{ R"((\d{2}):(\d{2}):(\d{2}),(\d{3}))" };
 	Time::Diff FromSRTFormat(std::string s)
 	{	
 		using namespace std;
@@ -67,28 +67,54 @@ namespace SubsResync
 		return d;
 	}
 
+	std::regex r{ "(.+) --> (.+)" };
+
 	CSRTLine Parse(std::ifstream &f)
 	{
 		CSRTLine l;
-		f >> l.No;
+		std::string LineNo;
+		std::getline(f, LineNo);
+		if (LineNo.empty())
+			return {};
+		l.No = std::stoi(LineNo);
 		std::string s;
+		std::smatch sm;
 		std::getline(f, s);
-		std::getline(f, l.Text);
-		return l;
+		if (!std::regex_match(s, sm, r))
+			throw std::runtime_error("Cannot parse SRT line: " + s);
+		l.From = FromSRTFormat(sm[1]);
+		l.To = FromSRTFormat(sm[2]);
+		bool First = true;
+		for (;;)
+		{
+			if (First)
+			{
+				First = false;
+			}
+			else
+			{
+				l.Text += CRLF;
+			}
+			std::getline(f, s);
+			if (s.empty())
+				return l;
+			l.Text += s;
+		}
 	}
 
 	void Write(const CSRTLine& l, std::ofstream& f)
 	{
-		f << l.No << CRLF <<  ToSRTFormat(l.From) << " --> " << ToSRTFormat(l.To) << CRLF << l.Text << CRLF;
+		f << l.No << CRLF <<  ToSRTFormat(l.From) << " --> " << ToSRTFormat(l.To) << CRLF << l.Text << CRLF << CRLF;
 	}
 
 	Time::Diff lerp(Time::Diff SRTFirst, Time::Diff SRTLast, Time::Diff RealFirst, Time::Diff RealLast, Time::Diff t)
 	{
-		long long l = (t.Get() - SRTFirst.Get());
-		return RealFirst + l * (RealLast - RealFirst) / (SRTLast.Get() - SRTFirst.Get());
+		long long l = t.Get() - SRTFirst.Get();
+		long long SRTLength = SRTLast.InMillisecsInt() - SRTFirst.InMillisecsInt();
+		long long RealLen = RealLast.InMillisecsInt() - RealFirst.InMillisecsInt();
+		long long res = RealFirst.Get() + l * RealLen / SRTLength;
+		return Time::Diff{ res };
 	}
-
-	
 
 	CSRTLines ResyncSRTLines(const CSRTLines& ls, Time::Diff RealFirst, Time::Diff RealLast)
 	{
@@ -102,9 +128,16 @@ namespace SubsResync
 
 		for (auto l : ls)
 		{
-			l.From = lerp(SRTFirst, SRTLast, RealFirst, RealLast, l.From);
-			l.To = lerp(SRTFirst, SRTLast, RealFirst, RealLast, l.To);
+			std::cout << "SRT: " << SRTFirst << " - " << SRTLast << std::endl;
+			std::cout << "Real: " << RealFirst << " - " << RealLast << std::endl;
+			auto NewFrom = lerp(SRTFirst, SRTLast, RealFirst, RealLast, l.From);
+			auto NewTo = lerp(SRTFirst, SRTLast, RealFirst, RealLast, l.To);
+			std::cout << "From: " << l.From << " NewFrom: " << NewFrom << std::endl;
+			l.From = NewFrom;
+			l.To = NewTo;
+			res.push_back(l);
 		}
+		
 
 		return res;
 	}
@@ -114,10 +147,18 @@ namespace SubsResync
 		std::ifstream fIn(c.SRTFileIn);
 		std::ofstream fOut(c.SRTFileOut);
 
+		if (fIn.fail())
+			throw std::runtime_error("Cannot open input file");
+
+		if (fOut.fail())
+			throw std::runtime_error("Cannot open output file");
+
 		CSRTLines In;
 		while (fIn)
 		{
 			auto l = Parse(fIn);
+			if (!l.IsValid())
+				break;
 			In.push_back(l);
 		}
 

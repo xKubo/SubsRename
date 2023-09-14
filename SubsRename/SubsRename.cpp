@@ -59,6 +59,7 @@ enum struct FileType
 
 map<string, FileType> Exts = {
     {"mkv", FileType::Video},
+    {"avi", FileType::Video},
     {"srt", FileType::Sub},
 };
 
@@ -198,7 +199,7 @@ int main(int argc, char* argv[]) try
         fs::rename(sf, SubName);
         cout << sf << endl; 
         cout << " -> " << SubName << endl;
-        fs::path OutName = p / (VFName.stem().string() + ".subs" + VFName.extension().string());
+        fs::path OutName = p / (VFName.stem().string() + ".subs.mkv");
 
         GenMuxedFile(VFName, SubName, OutName);
 
