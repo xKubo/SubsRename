@@ -128,11 +128,11 @@ namespace SubsResync
 
 		for (auto l : ls)
 		{
-			std::cout << "SRT: " << SRTFirst << " - " << SRTLast << std::endl;
-			std::cout << "Real: " << RealFirst << " - " << RealLast << std::endl;
+		//	std::cout << "SRT: " << SRTFirst << " - " << SRTLast << std::endl;
+		//	std::cout << "Real: " << RealFirst << " - " << RealLast << std::endl;
 			auto NewFrom = lerp(SRTFirst, SRTLast, RealFirst, RealLast, l.From);
 			auto NewTo = lerp(SRTFirst, SRTLast, RealFirst, RealLast, l.To);
-			std::cout << "From: " << l.From << " NewFrom: " << NewFrom << std::endl;
+		//	std::cout << "From: " << l.From << " NewFrom: " << NewFrom << std::endl;
 			l.From = NewFrom;
 			l.To = NewTo;
 			res.push_back(l);
